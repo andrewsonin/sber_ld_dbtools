@@ -6,7 +6,6 @@ from typing import Any, Optional, Mapping, Dict
 import teradatasql
 from pandakeeper.dataloader.sql import SqlLoader
 from pandakeeper.validators import AnyDataFrame
-from pandas import read_sql
 from pandera import DataFrameSchema
 from typing_extensions import final
 from varutils.plugs.constants import empty_mapping_proxy
@@ -89,7 +88,6 @@ class TeradataLoader(SqlLoader):
             sql_query,
             context_creator_args=(credentials,),
             context_creator_kwargs=copy(teradata_parameters),
-            read_sql_fn=read_sql,
             read_sql_kwargs=read_sql_kwargs,
             output_validator=output_validator
         )

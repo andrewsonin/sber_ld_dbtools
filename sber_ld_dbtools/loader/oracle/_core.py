@@ -3,12 +3,12 @@ from contextlib import ExitStack
 from copy import copy
 from os import PathLike
 from typing import Any, Optional, Union, Mapping, Dict
+from warnings import warn
 
 import jaydebeapi
-import jpype
+from jpype import JVMNotFoundException, isJVMStarted, startJVM, getDefaultJVMPath
 from pandakeeper.dataloader.sql import SqlLoader
 from pandakeeper.validators import AnyDataFrame
-from pandas import read_sql
 from pandera import DataFrameSchema
 from typing_extensions import final
 from varutils.plugs.constants import empty_mapping_proxy
@@ -42,8 +42,8 @@ class OracleContextManager:
         self.connection: Optional[jaydebeapi.Connection] = None
 
     def __enter__(self) -> jaydebeapi.Connection:
-        if not jpype.isJVMStarted():
-            jpype.startJVM(
+        if not isJVMStarted():
+            startJVM(
                 GlobalOracleConfig.JVMPath,
                 f'-Djava.class.path={GlobalOracleConfig.OJDBC8_PATH}',
                 convertStrings=True
@@ -111,7 +111,6 @@ class OracleLoader(SqlLoader):
             sql_query,
             context_creator_args=(credentials,),
             context_creator_kwargs=copy(oracle_parameters),
-            read_sql_fn=read_sql,
             read_sql_kwargs=read_sql_kwargs,
             output_validator=output_validator
         )
@@ -134,7 +133,16 @@ class _GlobalOracleConfigType:
     __slots__ = ()
     __instance: Optional['_GlobalOracleConfigType'] = None
     __OJDBC8_PATH = ''
-    __JVMPath = jpype.getDefaultJVMPath()
+    try:
+        __JVMPath: str = getDefaultJVMPath()
+    except JVMNotFoundException:
+        warn(
+            "No JVM shared library file (libjli.dylib) found. "
+            "Try setting up the JAVA_HOME environment variable properly "
+            "or setting up the GlobalOracleConfig.JVMPath property manually.",
+            RuntimeWarning
+        )
+        __JVMPath = ''
 
     def __new__(cls) -> '_GlobalOracleConfigType':
         instance = _GlobalOracleConfigType.__instance
