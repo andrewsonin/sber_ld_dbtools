@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sber_ld_dbtools"
-version = "0.0.5"
+version = "0.0.6"
 description = "Tools for interacting with LD databases."
 authors = ["Andrew Sonin <sonin.cel@yandex.ru>"]
 repository = "https://github.com/andrewsonin/sber_ld_dbtools"
@@ -11,8 +11,8 @@ license = "Apache License 2.0"
 [tool.poetry.dependencies]
 python = "^3.7"
 pandas = "^1"
-pandakeeper = "^0.0.21"
-varutils = "^0.0.5"
+pandakeeper = "^0.0.24"
+varutils = "^0.0.6"
 psycopg2-binary = "^2"
 teradatasql = "^17"
 pyspark = "^2"
