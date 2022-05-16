@@ -40,7 +40,6 @@ class SparkBaseLoader(SqlLoader):
                  read_sql_args: Tuple[Any, ...] = (),
                  read_sql_kwargs: Mapping[str, Any] = empty_mapping_proxy,
                  output_validator: DataFrameSchema) -> None:
-        check_type_compatibility(sql_query, str)
         check_type_compatibility(credentials, PasswordKeeper)
         check_type_compatibility(conf, (SparkConf, NoneType), f'{get_fully_qualified_name(SparkConf)} or None')
 

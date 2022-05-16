@@ -75,7 +75,6 @@ class TeradataLoader(SqlLoader):
                  output_validator: DataFrameSchema = AnyDataFrame,
                  **read_sql_kwargs: Any) -> None:
 
-        check_type_compatibility(sql_query, str)
         check_type_compatibility(credentials, PasswordKeeper)
         check_type_compatibility(teradata_parameters, _Mapping, 'Mapping')
 

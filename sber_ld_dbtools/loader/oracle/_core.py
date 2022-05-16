@@ -98,7 +98,6 @@ class OracleLoader(SqlLoader):
                  output_validator: DataFrameSchema = AnyDataFrame,
                  **read_sql_kwargs: Any) -> None:
 
-        check_type_compatibility(sql_query, str)
         check_type_compatibility(credentials, PasswordKeeper)
         check_type_compatibility(oracle_parameters, _Mapping, 'Mapping')
 
