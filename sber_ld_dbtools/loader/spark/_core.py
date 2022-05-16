@@ -1,20 +1,21 @@
 from contextlib import ExitStack
 from os import environ, PathLike
-from typing import Optional, Union
+from typing import Optional, Union, Callable, Tuple, Mapping, Any
 
 from pandakeeper.dataloader.sql import SqlLoader
-from pandakeeper.validators import AnyDataFrame
 from pandas import DataFrame
+from pandas import read_sql
 from pandera import DataFrameSchema
-from pyspark import SparkConf, SparkContext, HiveContext
+from pyspark import SparkConf, SparkContext
 from typing_extensions import Final, final
+from varutils.plugs.constants import empty_mapping_proxy
 from varutils.types import NoneType
 from varutils.typing import check_type_compatibility, get_fully_qualified_name
 
 from sber_ld_dbtools.credentials import PasswordKeeper, set_default_kerberos_principal
 
 __all__ = (
-    'SparkSqlLoader',
+    'SparkBaseLoader',
     'GlobalSparkConfig',
     'DEFAULT_SPARK_CONF'
 )
@@ -27,13 +28,7 @@ def _spark_context_creator(stack: ExitStack,
     return stack.enter_context(SparkContext.getOrCreate(conf))
 
 
-def _read_spark_sql(sql_query: str, conn: SparkContext) -> DataFrame:
-    hc = HiveContext(conn)
-    sql_result = hc.sql(sql_query)
-    return sql_result.toPandas()
-
-
-class SparkSqlLoader(SqlLoader):
+class SparkBaseLoader(SqlLoader):
     __slots__ = ()
 
     def __init__(self,
@@ -41,7 +36,10 @@ class SparkSqlLoader(SqlLoader):
                  *,
                  credentials: PasswordKeeper,
                  conf: Optional[SparkConf] = None,
-                 output_validator: DataFrameSchema = AnyDataFrame) -> None:
+                 read_sql_fn: Callable[..., DataFrame] = read_sql,
+                 read_sql_args: Tuple[Any, ...] = (),
+                 read_sql_kwargs: Mapping[str, Any] = empty_mapping_proxy,
+                 output_validator: DataFrameSchema) -> None:
         check_type_compatibility(sql_query, str)
         check_type_compatibility(credentials, PasswordKeeper)
         check_type_compatibility(conf, (SparkConf, NoneType), f'{get_fully_qualified_name(SparkConf)} or None')
@@ -50,7 +48,9 @@ class SparkSqlLoader(SqlLoader):
             _spark_context_creator,
             sql_query,
             context_creator_args=(credentials, conf),
-            read_sql_fn=_read_spark_sql,
+            read_sql_fn=read_sql_fn,
+            read_sql_args=read_sql_args,
+            read_sql_kwargs=read_sql_kwargs,
             output_validator=output_validator
         )
 
