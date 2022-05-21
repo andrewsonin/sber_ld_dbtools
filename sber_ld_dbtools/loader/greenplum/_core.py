@@ -1,20 +1,21 @@
 from collections.abc import Mapping as _Mapping
 from contextlib import ExitStack
 from copy import copy
-from typing import Any, Mapping, Dict
+from typing import Optional, Any, Mapping, Dict
 
 import psycopg2
 from pandakeeper.dataloader.sql import SqlLoader
 from pandakeeper.validators import AnyDataFrame
 from pandera import DataFrameSchema
 from typing_extensions import final
-from varutils.plugs.constants import empty_mapping_proxy
 from varutils.typing import check_type_compatibility
 
 from sber_ld_dbtools.credentials import PasswordKeeper, set_default_kerberos_principal
+from sber_ld_dbtools.loader.config import GlobalConfigType
 
 __all__ = (
     'GreenplumLoader',
+    'GlobalGreenplumConfig'
 )
 
 
@@ -34,13 +35,30 @@ class GreenplumLoader(SqlLoader):
     def __init__(self,
                  sql_query: str,
                  *,
-                 credentials: PasswordKeeper,
-                 greenplum_parameters: Mapping[str, Any] = empty_mapping_proxy,
+                 credentials: Optional[PasswordKeeper] = None,
+                 greenplum_parameters: Optional[Mapping[str, Any]] = None,
                  output_validator: DataFrameSchema = AnyDataFrame,
                  **read_sql_kwargs: Any) -> None:
 
-        check_type_compatibility(credentials, PasswordKeeper)
-        check_type_compatibility(greenplum_parameters, _Mapping, 'Mapping')
+        if credentials is None:
+            credentials = GlobalGreenplumConfig.DEFAULT_CREDENTIALS
+            if credentials is None:
+                raise TypeError(
+                    "If parameter 'credentials' is None "
+                    "GlobalGreenplumConfig.DEFAULT_CREDENTIALS should be set."
+                )
+        else:
+            check_type_compatibility(credentials, PasswordKeeper)
+
+        if greenplum_parameters is None:
+            greenplum_parameters = GlobalGreenplumConfig.DEFAULT_LOGIN_PARAMETERS
+            if greenplum_parameters is None:
+                raise TypeError(
+                    "If parameter 'greenplum_parameters' is None "
+                    "GlobalGreenplumConfig.DEFAULT_LOGIN_PARAMETERS should be set."
+                )
+        else:
+            check_type_compatibility(greenplum_parameters, _Mapping, 'Mapping')
 
         for keyword in ('host', 'dbname'):
             if keyword not in greenplum_parameters:
@@ -67,3 +85,10 @@ class GreenplumLoader(SqlLoader):
         if 'password' in res:
             res['password'] = '*****'
         return res
+
+
+class _GlobalGreenplumConfigType(GlobalConfigType):
+    __slots__ = ()
+
+
+GlobalGreenplumConfig = _GlobalGreenplumConfigType()

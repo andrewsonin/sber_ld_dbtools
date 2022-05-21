@@ -3,16 +3,15 @@ from os import environ, PathLike
 from typing import Optional, Union, Callable, Tuple, Mapping, Any
 
 from pandakeeper.dataloader.sql import SqlLoader
-from pandas import DataFrame
-from pandas import read_sql
+from pandas import DataFrame, read_sql
 from pandera import DataFrameSchema
 from pyspark import SparkConf, SparkContext
 from typing_extensions import Final, final
 from varutils.plugs.constants import empty_mapping_proxy
-from varutils.types import NoneType
 from varutils.typing import check_type_compatibility, get_fully_qualified_name
 
 from sber_ld_dbtools.credentials import PasswordKeeper, set_default_kerberos_principal
+from sber_ld_dbtools.loader.config import GlobalConfigType
 
 __all__ = (
     'SparkBaseLoader',
@@ -34,14 +33,27 @@ class SparkBaseLoader(SqlLoader):
     def __init__(self,
                  sql_query: str,
                  *,
-                 credentials: PasswordKeeper,
+                 credentials: Optional[PasswordKeeper] = None,
                  conf: Optional[SparkConf] = None,
                  read_sql_fn: Callable[..., DataFrame] = read_sql,
                  read_sql_args: Tuple[Any, ...] = (),
                  read_sql_kwargs: Mapping[str, Any] = empty_mapping_proxy,
                  output_validator: DataFrameSchema) -> None:
-        check_type_compatibility(credentials, PasswordKeeper)
-        check_type_compatibility(conf, (SparkConf, NoneType), f'{get_fully_qualified_name(SparkConf)} or None')
+
+        if credentials is None:
+            credentials = GlobalSparkConfig.DEFAULT_CREDENTIALS
+            if credentials is None:
+                raise TypeError(
+                    "If parameter 'credentials' is None "
+                    "GlobalSparkConfig.DEFAULT_CREDENTIALS should be set."
+                )
+        else:
+            check_type_compatibility(credentials, PasswordKeeper)
+
+        if conf is None:
+            conf = GlobalSparkConfig.DEFAULT_SPARK_CONF
+        else:
+            check_type_compatibility(conf, SparkConf, f'{get_fully_qualified_name(SparkConf)} or None')
 
         super().__init__(
             _spark_context_creator,
@@ -94,16 +106,9 @@ DEFAULT_SPARK_CONF: Final = (
 )
 
 
-class _GlobalSparkConfigType:
+class _GlobalSparkConfigType(GlobalConfigType):
     __slots__ = ()
-    __instance: Optional['_GlobalSparkConfigType'] = None
-
-    def __new__(cls) -> '_GlobalSparkConfigType':
-        instance = _GlobalSparkConfigType.__instance
-        if instance is None:
-            instance = super().__new__(cls)
-            _GlobalSparkConfigType.__instance = instance
-        return instance
+    __default_conf: Optional[SparkConf] = None
 
     @property
     def SPARK_HOME(self) -> Optional[str]:
@@ -131,6 +136,15 @@ class _GlobalSparkConfigType:
     def PYSPARK_PYTHON(self, value: Union[str, bytes, PathLike]) -> None:
         check_type_compatibility(value, (str, bytes, PathLike))
         environ['PYSPARK_PYTHON'] = str(value)
+
+    @property
+    def DEFAULT_SPARK_CONF(self) -> Optional[SparkConf]:
+        return _GlobalSparkConfigType.__default_conf
+
+    @DEFAULT_SPARK_CONF.setter
+    def DEFAULT_SPARK_CONF(self, value: SparkConf) -> None:
+        check_type_compatibility(value, SparkConf)
+        _GlobalSparkConfigType.__default_conf = value
 
 
 GlobalSparkConfig = _GlobalSparkConfigType()

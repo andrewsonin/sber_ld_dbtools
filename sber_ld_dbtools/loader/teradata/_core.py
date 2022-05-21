@@ -8,14 +8,15 @@ from pandakeeper.dataloader.sql import SqlLoader
 from pandakeeper.validators import AnyDataFrame
 from pandera import DataFrameSchema
 from typing_extensions import final
-from varutils.plugs.constants import empty_mapping_proxy
 from varutils.typing import check_type_compatibility
 
-from sber_ld_dbtools.credentials import PasswordKeeper, set_default_kerberos_principal
+from sber_ld_dbtools.credentials import PasswordKeeper
+from sber_ld_dbtools.loader.config import GlobalConfigType
 
 __all__ = (
     'TeradataContextManager',
-    'TeradataLoader'
+    'TeradataLoader',
+    'GlobalTeradataConfig'
 )
 
 
@@ -45,9 +46,8 @@ class TeradataContextManager:
         return self.connection
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.connection is not None:
-            self.connection.close()
-            self.connection = None
+        self.connection.close()  # type: ignore
+        self.connection = None
         if exc_type is not None:
             raise
 
@@ -55,7 +55,7 @@ class TeradataContextManager:
 def _teradata_context_creator(stack: ExitStack,
                               credentials: PasswordKeeper,
                               **teradata_context_kwargs: str) -> teradatasql.TeradataConnection:
-    set_default_kerberos_principal(credentials)
+
     if 'user' not in teradata_context_kwargs:
         teradata_context_kwargs['user'] = credentials.get_username()
     if 'password' not in teradata_context_kwargs:
@@ -70,13 +70,30 @@ class TeradataLoader(SqlLoader):
     def __init__(self,
                  sql_query: str,
                  *,
-                 credentials: PasswordKeeper,
-                 teradata_parameters: Mapping[str, Any] = empty_mapping_proxy,
+                 credentials: Optional[PasswordKeeper] = None,
+                 teradata_parameters: Optional[Mapping[str, Any]] = None,
                  output_validator: DataFrameSchema = AnyDataFrame,
                  **read_sql_kwargs: Any) -> None:
 
-        check_type_compatibility(credentials, PasswordKeeper)
-        check_type_compatibility(teradata_parameters, _Mapping, 'Mapping')
+        if credentials is None:
+            credentials = GlobalTeradataConfig.DEFAULT_CREDENTIALS
+            if credentials is None:
+                raise TypeError(
+                    "If parameter 'credentials' is None "
+                    "GlobalTeradataConfig.DEFAULT_CREDENTIALS should be set."
+                )
+        else:
+            check_type_compatibility(credentials, PasswordKeeper)
+
+        if teradata_parameters is None:
+            teradata_parameters = GlobalTeradataConfig.DEFAULT_LOGIN_PARAMETERS
+            if teradata_parameters is None:
+                raise TypeError(
+                    "If parameter 'teradata_parameters' is None "
+                    "GlobalTeradataConfig.DEFAULT_LOGIN_PARAMETERS should be set."
+                )
+        else:
+            check_type_compatibility(teradata_parameters, _Mapping, 'Mapping')
 
         for teradata_keyword in ('host', 'logmech'):
             if teradata_keyword not in teradata_parameters:
@@ -103,3 +120,10 @@ class TeradataLoader(SqlLoader):
         if 'password' in res:
             res['password'] = '*****'
         return res
+
+
+class _GlobalTeradataConfigType(GlobalConfigType):
+    __slots__ = ()
+
+
+GlobalTeradataConfig = _GlobalTeradataConfigType()

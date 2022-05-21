@@ -6,15 +6,15 @@ from typing import Any, Optional, Union, Mapping, Dict
 from warnings import warn
 
 import jaydebeapi
-from jpype import JVMNotFoundException, isJVMStarted, startJVM, getDefaultJVMPath
+from jpype import JVMNotFoundException, startJVM, getDefaultJVMPath
 from pandakeeper.dataloader.sql import SqlLoader
 from pandakeeper.validators import AnyDataFrame
 from pandera import DataFrameSchema
 from typing_extensions import final
-from varutils.plugs.constants import empty_mapping_proxy
 from varutils.typing import check_type_compatibility
 
 from sber_ld_dbtools.credentials import PasswordKeeper
+from sber_ld_dbtools.loader.config import GlobalConfigType
 
 __all__ = (
     'OracleContextManager',
@@ -42,12 +42,16 @@ class OracleContextManager:
         self.connection: Optional[jaydebeapi.Connection] = None
 
     def __enter__(self) -> jaydebeapi.Connection:
-        if not isJVMStarted():
+        try:
             startJVM(
                 GlobalOracleConfig.JVMPath,
                 f'-Djava.class.path={GlobalOracleConfig.OJDBC8_PATH}',
                 convertStrings=True
             )
+        except OSError as e:
+            if 'already started' not in e.args[0].lower():
+                raise
+        GlobalOracleConfig._already_started = True
         self.connection = jaydebeapi.connect(
             'oracle.jdbc.driver.OracleDriver',
             f'jdbc:oracle:thin:{self.user}/{self.__password}@{self.host}:{self.port}:{self.sid}'
@@ -55,9 +59,8 @@ class OracleContextManager:
         return self.connection
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        if self.connection is not None:
-            self.connection.close()
-            self.connection = None
+        self.connection.close()  # type: ignore
+        self.connection = None
         if exc_type is not None:
             raise
 
@@ -93,13 +96,30 @@ class OracleLoader(SqlLoader):
     def __init__(self,
                  sql_query: str,
                  *,
-                 credentials: PasswordKeeper,
-                 oracle_parameters: Mapping[str, Any] = empty_mapping_proxy,
+                 credentials: Optional[PasswordKeeper] = None,
+                 oracle_parameters: Optional[Mapping[str, Any]] = None,
                  output_validator: DataFrameSchema = AnyDataFrame,
                  **read_sql_kwargs: Any) -> None:
 
-        check_type_compatibility(credentials, PasswordKeeper)
-        check_type_compatibility(oracle_parameters, _Mapping, 'Mapping')
+        if credentials is None:
+            credentials = GlobalOracleConfig.DEFAULT_CREDENTIALS
+            if credentials is None:
+                raise TypeError(
+                    "If parameter 'credentials' is None "
+                    "GlobalOracleConfig.DEFAULT_CREDENTIALS should be set."
+                )
+        else:
+            check_type_compatibility(credentials, PasswordKeeper)
+
+        if oracle_parameters is None:
+            oracle_parameters = GlobalOracleConfig.DEFAULT_LOGIN_PARAMETERS
+            if oracle_parameters is None:
+                raise TypeError(
+                    "If parameter 'oracle_parameters' is None "
+                    "GlobalOracleConfig.DEFAULT_LOGIN_PARAMETERS should be set."
+                )
+        else:
+            check_type_compatibility(oracle_parameters, _Mapping, 'Mapping')
 
         for keyword in ('host', 'port', 'sid'):
             if keyword not in oracle_parameters:
@@ -128,9 +148,8 @@ class OracleLoader(SqlLoader):
         return res
 
 
-class _GlobalOracleConfigType:
-    __slots__ = ()
-    __instance: Optional['_GlobalOracleConfigType'] = None
+class _GlobalOracleConfigType(GlobalConfigType):
+    __slots__ = ('_already_started',)
     __OJDBC8_PATH = ''
     try:
         __JVMPath: str = getDefaultJVMPath()
@@ -143,12 +162,9 @@ class _GlobalOracleConfigType:
         )
         __JVMPath = ''
 
-    def __new__(cls) -> '_GlobalOracleConfigType':
-        instance = _GlobalOracleConfigType.__instance
-        if instance is None:
-            instance = super().__new__(cls)
-            _GlobalOracleConfigType.__instance = instance
-        return instance
+    def __init__(self) -> None:
+        super().__init__()
+        self._already_started = False
 
     @property
     def OJDBC8_PATH(self) -> str:
@@ -160,6 +176,8 @@ class _GlobalOracleConfigType:
     @OJDBC8_PATH.setter
     def OJDBC8_PATH(self, value: Union[str, bytes, PathLike]) -> None:
         check_type_compatibility(value, (str, bytes, PathLike))
+        if _GlobalOracleConfigType._already_started:
+            raise RuntimeError("Cannot set OJDBC8_PATH when JVM is already started.")
         _GlobalOracleConfigType.__OJDBC8_PATH = str(value)
 
     @property
@@ -169,7 +187,8 @@ class _GlobalOracleConfigType:
     @JVMPath.setter
     def JVMPath(self, value: Union[str, bytes, PathLike]) -> None:
         check_type_compatibility(value, (str, bytes, PathLike))
+        if _GlobalOracleConfigType._already_started:
+            raise RuntimeError("Cannot set JVMPath when JVM is already started.")
         _GlobalOracleConfigType.__JVMPath = str(value)
-
 
 GlobalOracleConfig = _GlobalOracleConfigType()

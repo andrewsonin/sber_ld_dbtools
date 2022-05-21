@@ -25,7 +25,7 @@ class SparkHiveLoader(SparkBaseLoader):
     def __init__(self,
                  sql_query: str,
                  *,
-                 credentials: PasswordKeeper,
+                 credentials: Optional[PasswordKeeper] = None,
                  conf: Optional[SparkConf] = None,
                  output_validator: DataFrameSchema = AnyDataFrame) -> None:
         super().__init__(
