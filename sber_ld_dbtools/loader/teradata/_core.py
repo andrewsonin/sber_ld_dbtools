@@ -24,7 +24,6 @@ class TeradataContextManager:
     __slots__ = ('host', 'user', '__password', 'logmech', 'connection')
 
     def __init__(self, host: str, *, user: str, password: str, logmech: str) -> None:
-
         check_type_compatibility(host, str)
         check_type_compatibility(user, str)
         check_type_compatibility(password, str)
@@ -55,7 +54,6 @@ class TeradataContextManager:
 def _teradata_context_creator(stack: ExitStack,
                               credentials: PasswordKeeper,
                               **teradata_context_kwargs: str) -> teradatasql.TeradataConnection:
-
     if 'user' not in teradata_context_kwargs:
         teradata_context_kwargs['user'] = credentials.get_username()
     if 'password' not in teradata_context_kwargs:
@@ -79,7 +77,7 @@ class TeradataLoader(SqlLoader):
             credentials = GlobalTeradataConfig.DEFAULT_CREDENTIALS
             if credentials is None:
                 raise TypeError(
-                    "If parameter 'credentials' is None "
+                    "If parameter 'credentials' is None, "
                     "GlobalTeradataConfig.DEFAULT_CREDENTIALS should be set."
                 )
         else:
@@ -89,7 +87,7 @@ class TeradataLoader(SqlLoader):
             teradata_parameters = GlobalTeradataConfig.DEFAULT_LOGIN_PARAMETERS
             if teradata_parameters is None:
                 raise TypeError(
-                    "If parameter 'teradata_parameters' is None "
+                    "If parameter 'teradata_parameters' is None, "
                     "GlobalTeradataConfig.DEFAULT_LOGIN_PARAMETERS should be set."
                 )
         else:

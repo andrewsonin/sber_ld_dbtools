@@ -44,7 +44,7 @@ class GreenplumLoader(SqlLoader):
             credentials = GlobalGreenplumConfig.DEFAULT_CREDENTIALS
             if credentials is None:
                 raise TypeError(
-                    "If parameter 'credentials' is None "
+                    "If parameter 'credentials' is None, "
                     "GlobalGreenplumConfig.DEFAULT_CREDENTIALS should be set."
                 )
         else:
@@ -54,7 +54,7 @@ class GreenplumLoader(SqlLoader):
             greenplum_parameters = GlobalGreenplumConfig.DEFAULT_LOGIN_PARAMETERS
             if greenplum_parameters is None:
                 raise TypeError(
-                    "If parameter 'greenplum_parameters' is None "
+                    "If parameter 'greenplum_parameters' is None, "
                     "GlobalGreenplumConfig.DEFAULT_LOGIN_PARAMETERS should be set."
                 )
         else:

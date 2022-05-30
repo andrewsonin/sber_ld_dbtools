@@ -105,7 +105,7 @@ class OracleLoader(SqlLoader):
             credentials = GlobalOracleConfig.DEFAULT_CREDENTIALS
             if credentials is None:
                 raise TypeError(
-                    "If parameter 'credentials' is None "
+                    "If parameter 'credentials' is None, "
                     "GlobalOracleConfig.DEFAULT_CREDENTIALS should be set."
                 )
         else:
@@ -115,7 +115,7 @@ class OracleLoader(SqlLoader):
             oracle_parameters = GlobalOracleConfig.DEFAULT_LOGIN_PARAMETERS
             if oracle_parameters is None:
                 raise TypeError(
-                    "If parameter 'oracle_parameters' is None "
+                    "If parameter 'oracle_parameters' is None, "
                     "GlobalOracleConfig.DEFAULT_LOGIN_PARAMETERS should be set."
                 )
         else:
@@ -176,7 +176,7 @@ class _GlobalOracleConfigType(GlobalConfigType):
     @OJDBC8_PATH.setter
     def OJDBC8_PATH(self, value: Union[str, bytes, PathLike]) -> None:
         check_type_compatibility(value, (str, bytes, PathLike))
-        if _GlobalOracleConfigType._already_started:
+        if GlobalOracleConfig._already_started:
             raise RuntimeError("Cannot set OJDBC8_PATH when JVM is already started.")
         _GlobalOracleConfigType.__OJDBC8_PATH = str(value)
 
@@ -187,8 +187,9 @@ class _GlobalOracleConfigType(GlobalConfigType):
     @JVMPath.setter
     def JVMPath(self, value: Union[str, bytes, PathLike]) -> None:
         check_type_compatibility(value, (str, bytes, PathLike))
-        if _GlobalOracleConfigType._already_started:
+        if GlobalOracleConfig._already_started:
             raise RuntimeError("Cannot set JVMPath when JVM is already started.")
         _GlobalOracleConfigType.__JVMPath = str(value)
+
 
 GlobalOracleConfig = _GlobalOracleConfigType()

@@ -44,7 +44,7 @@ class SparkBaseLoader(SqlLoader):
             credentials = GlobalSparkConfig.DEFAULT_CREDENTIALS
             if credentials is None:
                 raise TypeError(
-                    "If parameter 'credentials' is None "
+                    "If parameter 'credentials' is None, "
                     "GlobalSparkConfig.DEFAULT_CREDENTIALS should be set."
                 )
         else:
